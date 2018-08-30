@@ -1,19 +1,54 @@
 const axios = require('axios');
+const db = require("../database/dbConfig");
+const bcrypt = require("bcryptjs");
 
-const { authenticate } = require('./middlewares');
+const { authenticate, generate } = require('./middlewares');
 
 module.exports = server => {
   server.post('/api/register', register);
   server.post('/api/login', login);
   server.get('/api/jokes', authenticate, getJokes);
-};
+}
 
 function register(req, res) {
   // implement user registration
+  const user = req.body;
+  const hash = bcrypt.hashSync(user.password, 14);
+  user.password = hash;
+  db("users")
+    .insert(user)
+      .then(ids => {
+        db("users")
+          .where({ id: ids[0] })
+          .first()
+          .then(user => {
+            const token = generate(user);
+            res.status(201).json(token);
+          });
+      })
+    .catch(error => {
+      res.status(500).json({ msg:`${error}` })
+    })
 }
 
 function login(req, res) {
   // implement user login
+  const credentials = req.body;
+
+  db('users')
+    .where({ username: credentials.username })
+    .first()
+    .then(user => {
+      if (user && bcrypt.compareSync(credentials.password, user.password)) {
+        const token = generate(user);
+        res.send(token);
+    }
+      else {return res.status(401).json({ message: "Login info incorrect, please try again" })
+    }
+  })
+    .catch(error => {
+      res.status(500).json({ message: "Something went wrong", error: error })
+  })
 }
 
 function getJokes(req, res) {
