@@ -2,7 +2,7 @@ const axios = require('axios');
 const db = require("../database/dbConfig");
 const bcrypt = require("bcryptjs");
 
-const { authenticate, generate } = require('./middlewares');
+const { authenticate, generateToken } = require('./middlewares');
 
 module.exports = server => {
   server.post('/api/register', register);
@@ -11,9 +11,8 @@ module.exports = server => {
 }
 
 function register(req, res) {
-  // implement user registration
   const user = req.body;
-  const hash = bcrypt.hashSync(user.password, 14);
+  const hash = bcrypt.hashSync(user.password, 18);
   user.password = hash;
   db("users")
     .insert(user)
@@ -22,7 +21,8 @@ function register(req, res) {
           .where({ id: ids[0] })
           .first()
           .then(user => {
-            const token = generate(user);
+            const token = generateToken(user);
+
             res.status(201).json(token);
           });
       })
@@ -32,16 +32,14 @@ function register(req, res) {
 }
 
 function login(req, res) {
-  // implement user login
   const credentials = req.body;
-
   db('users')
     .where({ username: credentials.username })
     .first()
     .then(user => {
       if (user && bcrypt.compareSync(credentials.password, user.password)) {
-        const token = generate(user);
-        res.send(token);
+        const token = generateToken(user);
+        // res.send(token);
     }
       else {return res.status(401).json({ message: "Login info incorrect, please try again" })
     }
